@@ -133,6 +133,17 @@
 
     .subject h3 { margin-top: 0; }
 
+    .personal-task-list { display: grid; gap: 10px; margin-top: 16px; }
+    .personal-task-item { display: flex; align-items: center; gap: 10px; padding: 12px; background: #151a27; border-radius: 10px; }
+    .personal-task-item span { flex: 1; overflow-wrap: anywhere; }
+    .personal-task-item.done span { color: #8993ab; text-decoration: line-through; }
+    .personal-task-form { display: flex; gap: 10px; margin-top: 14px; }
+    .personal-task-form input { min-width: 0; flex: 1; padding: 11px 12px; border: 1px solid #3a4560; border-radius: 10px; background: #10131c; color: #f5f7ff; font: inherit; }
+    .personal-task-form button { flex-shrink: 0; }
+    .personal-task-delete { padding: 7px 10px; background: #30374b; color: #f5f7ff; }
+    @media (max-width: 420px) { .personal-task-form { flex-direction: column; } .personal-task-form button { width: 100%; } }
+
+
     label.task-label {
       display: flex;
       gap: 10px;
@@ -316,6 +327,18 @@
     </div>
   </section>
 
+
+  <section class="panel" id="personal-tasks-panel">
+    <h2>📝 My Personal Tasks</h2>
+    <p class="muted">Add tasks for this particular day. Each date has its own list.</p>
+    <form class="personal-task-form" id="personal-task-form">
+      <input id="personal-task-input" type="text" maxlength="120" placeholder="e.g. Finish English homework" aria-label="New personal task" autocomplete="off">
+      <button type="submit" id="add-personal-task-btn">+ Add task</button>
+    </form>
+    <p class="muted" id="personal-task-note" aria-live="polite"></p>
+    <div class="personal-task-list" id="personal-task-list"></div>
+  </section>
+
   <p class="footer">
     Your progress is saved in this browser. Focus time counts only while
     the timer is running and this tab is visible. Browser-only date checks
@@ -412,6 +435,7 @@
     if (!data.days[key]) {
       data.days[key] = {
         tasks: {},
+        personalTasks: [],
         focusSeconds: 0,
         completedCelebrated: false
       };
@@ -428,7 +452,55 @@
   }
 
   function currentRecord() {
-    return dayRecord(viewedDate);
+    const record = dayRecord(viewedDate);
+    if (!Array.isArray(record.personalTasks)) record.personalTasks = [];
+    return record;
+  }
+
+  function renderPersonalTasks(record, canEdit) {
+    const list = $("personal-task-list");
+    list.replaceChildren();
+    const input = $("personal-task-input");
+    const addButton = $("add-personal-task-btn");
+    input.disabled = !canEdit;
+    addButton.disabled = !canEdit;
+    $("personal-task-note").textContent = canEdit
+      ? `${record.personalTasks.length} personal task${record.personalTasks.length === 1 ? "" : "s"} for this day.`
+      : isFuture(viewedDate)
+        ? "This date is locked until it begins. You can add tasks when it becomes today."
+        : "Past-day personal tasks are read-only.";
+
+    record.personalTasks.forEach(task => {
+      const item = document.createElement("div");
+      item.className = `personal-task-item${task.done ? " done" : ""}`;
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = Boolean(task.done);
+      checkbox.disabled = !canEdit;
+      checkbox.setAttribute("aria-label", `Complete ${task.text}`);
+      checkbox.addEventListener("change", () => {
+        task.done = checkbox.checked;
+        saveData();
+        renderPersonalTasks(record, canEdit);
+      });
+      const label = document.createElement("span");
+      label.textContent = task.text;
+      item.append(checkbox, label);
+      if (canEdit) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "personal-task-delete";
+        remove.textContent = "Delete";
+        remove.setAttribute("aria-label", `Delete ${task.text}`);
+        remove.addEventListener("click", () => {
+          record.personalTasks = record.personalTasks.filter(entry => entry.id !== task.id);
+          saveData();
+          renderPersonalTasks(record, canEdit);
+        });
+        item.append(remove);
+      }
+      list.append(item);
+    });
   }
 
   function completedCount(record) {
@@ -533,6 +605,7 @@
       task.checked = record.tasks[task.dataset.id] === true;
       task.disabled = !today || Boolean(clockWarning);
     });
+    renderPersonalTasks(record, today && !clockWarning);
 
     $("today-btn").disabled = today;
     $("next-btn").disabled = future;
@@ -700,6 +773,28 @@
 
       updateView();
     });
+  });
+
+  $("personal-task-form").addEventListener("submit", event => {
+    event.preventDefault();
+    if (viewedDate !== todayKey || clockWarning) return;
+    const input = $("personal-task-input");
+    const text = input.value.trim();
+    if (!text) {
+      input.focus();
+      return;
+    }
+    const record = dayRecord(todayKey);
+    if (!Array.isArray(record.personalTasks)) record.personalTasks = [];
+    record.personalTasks.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text,
+      done: false
+    });
+    input.value = "";
+    saveData();
+    renderPersonalTasks(record, true);
+    input.focus();
   });
 
   $("start-btn").addEventListener("click", startTimer);
