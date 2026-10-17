@@ -1,0 +1,764 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study Quest | Daily Tracker</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 28px 16px;
+      font-family: Arial, sans-serif;
+      background: #10131c;
+      color: #f5f7ff;
+    }
+
+    button { font: inherit; }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+
+    .subtitle, .muted { color: #a7afc4; }
+
+    .panel, .subject {
+      background: #1b2030;
+      border: 1px solid #2c3449;
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .panel { margin-top: 20px; }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .day-nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 10px;
+      background: #8b9cff;
+      color: #10131c;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: #30374b;
+      color: #f5f7ff;
+    }
+
+    .status {
+      padding: 12px 14px;
+      margin-top: 16px;
+      border-radius: 10px;
+      background: #252d43;
+      color: #dce2f2;
+      line-height: 1.5;
+    }
+
+    .status.warning {
+      background: #402b24;
+      border: 1px solid #9c6244;
+      color: #ffe0ca;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .stat {
+      padding: 16px;
+      background: #151a27;
+      border-radius: 12px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #a7afc4;
+    }
+
+    .stat-value {
+      display: block;
+      font-size: 23px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+
+    .progress-track {
+      height: 10px;
+      margin-top: 12px;
+      background: #30374b;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #8b9cff;
+      transition: width 0.3s;
+    }
+
+    .subjects {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .subject h3 { margin-top: 0; }
+
+    label.task-label {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin: 18px 0;
+      line-height: 1.4;
+      color: #dce2f2;
+    }
+
+    input[type="checkbox"] {
+      accent-color: #8b9cff;
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+    }
+
+    input:disabled { cursor: not-allowed; }
+
+    .timer {
+      font-size: clamp(30px, 7vw, 42px);
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin: 12px 0;
+    }
+
+    .timer-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toast {
+      position: fixed;
+      z-index: 10;
+      bottom: 24px;
+      left: 50%;
+      width: calc(100% - 32px);
+      max-width: 390px;
+      padding: 22px;
+      text-align: center;
+      background: #252d43;
+      border: 1px solid #6879c9;
+      border-radius: 20px;
+      box-shadow: 0 12px 45px #0008;
+      transform: translate(-50%, 20px);
+      opacity: 0;
+      visibility: hidden;
+      transition: 0.25s;
+    }
+
+    .toast.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, 0);
+    }
+
+    .toast-emoji { font-size: 40px; }
+    .toast h2 { color: #c5ceff; }
+    .toast p { line-height: 1.5; color: #dce2f2; }
+
+    .toast button { margin-top: 8px; }
+
+    .footer {
+      margin-top: 22px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #8993ab;
+    }
+
+    @media (max-width: 650px) {
+      .subjects { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<main class="container">
+  <h1>Study Quest 📚</h1>
+  <p class="subtitle">Build consistency, one study session at a time.</p>
+
+  <section class="panel">
+    <div class="topline">
+      <div>
+        <h2 id="day-title">Day 1</h2>
+        <p class="muted" id="date-label"></p>
+      </div>
+
+      <div class="day-nav">
+        <button class="secondary" id="today-btn">Today</button>
+        <button class="secondary" id="next-btn">Preview next day →</button>
+      </div>
+    </div>
+
+    <div class="status" id="day-status" aria-live="polite"></div>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">TASKS COMPLETED</span>
+        <span class="stat-value" id="task-count">0/6</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">FOCUS TIME TODAY</span>
+        <span class="stat-value" id="focus-time">00:00:00</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">DAILY COMPLETION</span>
+        <span class="stat-value" id="percentage">0%</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">🔥 CURRENT STREAK</span>
+        <span class="stat-value" id="current-streak">0 days</span>
+        <span class="stat-label" style="display:block;margin-top:8px">Best: <strong id="longest-streak">0 days</strong></span>
+      </div>
+    </div>
+
+    <div class="progress-track">
+      <div id="progress-bar"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>⏱️ Focus timer</h2>
+    <p class="muted">
+      Start when you begin studying. The timer pauses when you leave this tab.
+    </p>
+
+    <div class="timer" id="timer-display">00:00:00</div>
+
+    <div class="timer-controls">
+      <button id="start-btn">▶ Start studying</button>
+      <button class="secondary" id="pause-btn" disabled>Pause</button>
+      <button class="secondary" id="reset-btn">Reset today's focus</button>
+    </div>
+    
+    <p class="muted" id="timer-status">Timer is paused.</p>
+  </section>
+
+  <section class="subjects">
+    <div class="subject">
+      <h3>⚡ Physics</h3>
+      <label class="task-label">
+        <input type="checkbox" class="task" data-id="physics-revise">
+        Revise concepts
+      </label>
+      <label class="task-label">
+        <input type="checkbox" class="task" data-id="physics-practice">
+        Solve numericals
+      </label>
+    </div>
+
+    <div class="subject">
+      <h3>🧪 Chemistry</h3>
+      <label class="task-label">
+        <input type="checkbox" class="task" data-id="chemistry-study">
+        Study a topic
+      </label>
+      <label class="task-label">
+        <input type="checkbox" class="task" data-id="chemistry-practice">
+        Practice questions
+      </label>
+    </div>
+
+    <div class="subject">
+      <h3>📐 Maths</h3>
+      <label class="task-label">
+        <input type="checkbox" class="task" data-id="maths-revise">
+        Revise formulas
+      </label>
+      <label class="task-label">
+        <input type="checkbox" class="task" data-id="maths-practice">
+        Solve problems
+      </label>
+    </div>
+  </section>
+
+  <p class="footer">
+    Your progress is saved in this browser. Focus time counts only while
+    the timer is running and this tab is visible. Browser-only date checks
+    are not secure against someone who changes their computer clock or
+    edits browser storage.
+  </p>
+</main>
+
+<section class="toast" id="celebration" role="status" aria-live="polite">
+  <div class="toast-emoji" id="toast-emoji">🎉</div>
+  <h2 id="toast-title">Great job!</h2>
+  <p id="toast-message"></p>
+  <button id="close-toast">Keep going!</button>
+</section>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const tasks = [...document.querySelectorAll(".task")];
+
+  const STORAGE = "studyQuest-v1";
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function localDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function dateFromKey(key) {
+    const [year, month, day] = key.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  function dayDifference(first, second) {
+    const a = dateFromKey(first);
+    const b = dateFromKey(second);
+    return Math.round((b - a) / DAY_MS);
+  }
+
+  function prettyDate(key) {
+    return dateFromKey(key).toLocaleDateString(undefined, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  function loadData() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE));
+      if (saved && saved.startDate && saved.days) return saved;
+    } catch (error) {}
+
+    const today = localDateKey();
+    return {
+      startDate: today,
+      days: {},
+      lastSeenDate: today,
+      lastSeenTimestamp: Date.now()
+    };
+  }
+
+  let data = loadData();
+  let todayKey = localDateKey();
+  let viewedDate = todayKey;
+  let timerInterval = null;
+  let focusStartedAt = null;
+  let timerSessionSeconds = 0;
+  let popupTimer = null;
+  let audioContext = null;
+  let clockCheckDate = todayKey;
+  let clockCheckWall = Date.now();
+  let clockCheckMono = performance.now();
+  let clockWarning = "";
+
+  function saveData() {
+    data.lastSeenDate = todayKey;
+    data.lastSeenTimestamp = Date.now();
+
+    try {
+      localStorage.setItem(STORAGE, JSON.stringify(data));
+    } catch (error) {
+      console.warn("Progress could not be saved.", error);
+    }
+  }
+
+  function dayNumber(key) {
+    return Math.max(1, dayDifference(data.startDate, key) + 1);
+  }
+
+  function dayRecord(key) {
+    if (!data.days[key]) {
+      data.days[key] = {
+        tasks: {},
+        focusSeconds: 0,
+        completedCelebrated: false
+      };
+    }
+    return data.days[key];
+  }
+
+  function isFuture(key) {
+    return key > todayKey;
+  }
+
+  function isPast(key) {
+    return key < todayKey;
+  }
+
+  function currentRecord() {
+    return dayRecord(viewedDate);
+  }
+
+  function completedCount(record) {
+    return tasks.filter(task => record.tasks[task.dataset.id] === true).length;
+  }
+
+  // A streak day counts only when all six daily tasks are completed.
+  function isGoalComplete(key) {
+    if (key > todayKey) return false;
+    const record = data.days[key];
+    return Boolean(record) && completedCount(record) === tasks.length;
+  }
+
+  function calculateStreaks() {
+    // Today's goal may still be in progress; in that case, count back from yesterday.
+    const cursorDate = dateFromKey(todayKey);
+    if (!isGoalComplete(todayKey)) cursorDate.setDate(cursorDate.getDate() - 1);
+    let cursor = localDateKey(cursorDate);
+    let current = 0;
+    while (cursor >= data.startDate && isGoalComplete(cursor)) {
+      current++;
+      const previous = dateFromKey(cursor);
+      previous.setDate(previous.getDate() - 1);
+      cursor = localDateKey(previous);
+    }
+
+    let longest = 0;
+    let running = 0;
+    const start = dateFromKey(data.startDate);
+    const end = dateFromKey(todayKey);
+    for (let day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
+      const key = localDateKey(day);
+      if (isGoalComplete(key)) {
+        running++;
+        longest = Math.max(longest, running);
+      } else {
+        running = 0;
+      }
+    }
+    return { current, longest };
+  }
+
+  function formatTime(totalSeconds) {
+    const seconds = Math.max(0, Math.floor(totalSeconds));
+    const hours = String(Math.floor(seconds / 3600)).padStart(2, "0");
+    const minutes = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+    const remainder = String(seconds % 60).padStart(2, "0");
+    return `${hours}:${minutes}:${remainder}`;
+  }
+
+  function elapsedFocus(record) {
+    return record.focusSeconds +
+      (focusStartedAt === null || viewedDate !== todayKey
+        ? 0
+        : Math.floor((Date.now() - focusStartedAt) / 1000));
+  }
+
+  function updateView() {
+    const record = currentRecord();
+    const done = completedCount(record);
+    const total = tasks.length;
+    const percent = Math.round((done / total) * 100);
+    const future = isFuture(viewedDate);
+    const past = isPast(viewedDate);
+    const today = viewedDate === todayKey;
+    const complete = done === total;
+
+    $("day-title").textContent = `Day ${dayNumber(viewedDate)}`;
+    $("date-label").textContent = prettyDate(viewedDate);
+
+    $("task-count").textContent = `${done}/${total}`;
+    $("percentage").textContent = `${percent}%`;
+    $("progress-bar").style.width = `${percent}%`;
+    $("focus-time").textContent = formatTime(record.focusSeconds);
+
+    const streaks = calculateStreaks();
+    $("current-streak").textContent = `${streaks.current} ${streaks.current === 1 ? "day" : "days"}`;
+    $("longest-streak").textContent = `${streaks.longest} ${streaks.longest === 1 ? "day" : "days"}`;
+
+    if (future) {
+      $("day-status").textContent =
+        `🔒 This day has not started yet. It unlocks on ${prettyDate(viewedDate)}. You can preview it, but tasks are locked.`;
+    } else if (past) {
+      $("day-status").textContent =
+        `📖 Past session: ${done} of ${total} tasks completed. Past tasks are read-only.`;
+    } else if (clockWarning) {
+      $("day-status").textContent = `⚠️ ${clockWarning}`;
+      $("day-status").classList.add("warning");
+    } else if (complete) {
+      $("day-status").textContent =
+        "🏆 Today's tasks are complete! Your streak has been updated. Your next day opens when its calendar date begins.";
+      $("day-status").classList.remove("warning");
+    } else {
+      $("day-status").textContent =
+        `Today's session is active. Complete your tasks at your own pace. ${done} of ${total} finished.`;
+      $("day-status").classList.remove("warning");
+    }
+
+    if (!clockWarning) $("day-status").classList.remove("warning");
+
+    tasks.forEach(task => {
+      task.checked = record.tasks[task.dataset.id] === true;
+      task.disabled = !today || Boolean(clockWarning);
+    });
+
+    $("today-btn").disabled = today;
+    $("next-btn").disabled = future;
+
+    $("next-btn").textContent = future
+      ? "Next day locked 🔒"
+      : "Preview next day →";
+
+    $("start-btn").disabled = !today || Boolean(clockWarning) ||
+      focusStartedAt !== null;
+    $("pause-btn").disabled = focusStartedAt === null;
+    $("reset-btn").disabled = !today || Boolean(clockWarning);
+
+    $("timer-display").textContent = formatTime(elapsedFocus(record));
+
+    $("timer-status").textContent = !today
+      ? "The focus timer is available only for today's session."
+      : focusStartedAt !== null
+        ? "Focus timer is running. Keep going!"
+        : "Timer is paused.";
+
+    saveData();
+  }
+
+  function showPopup(emoji, title, message) {
+    $("toast-emoji").textContent = emoji;
+    $("toast-title").textContent = title;
+    $("toast-message").textContent = message;
+
+    $("celebration").classList.remove("show");
+    void $("celebration").offsetWidth;
+    $("celebration").classList.add("show");
+
+    clearTimeout(popupTimer);
+    popupTimer = setTimeout(() => {
+      $("celebration").classList.remove("show");
+    }, 3800);
+  }
+
+  function playSound() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      if (!audioContext) audioContext = new AudioContextClass();
+      if (audioContext.state === "suspended") audioContext.resume();
+
+      const now = audioContext.currentTime;
+
+      [523.25, 659.25, 783.99].forEach((frequency, index) => {
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const start = now + index * 0.09;
+
+        oscillator.type = "sine";
+        oscillator.frequency.value = frequency;
+
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.09, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(start);
+        oscillator.stop(start + 0.21);
+      });
+    } catch (error) {}
+  }
+
+  function startTimer() {
+    if (viewedDate !== todayKey || clockWarning || focusStartedAt !== null) return;
+
+    focusStartedAt = Date.now();
+    timerSessionSeconds = 0;
+
+    timerInterval = setInterval(() => {
+      checkClockForTampering();
+      if (clockWarning) {
+        pauseTimer();
+        updateView();
+        return;
+      }
+
+      updateView();
+    }, 1000);
+
+    updateView();
+  }
+
+  function pauseTimer() {
+    if (focusStartedAt !== null) {
+      const elapsed = Math.max(0, Math.floor((Date.now() - focusStartedAt) / 1000));
+      dayRecord(todayKey).focusSeconds += elapsed;
+      focusStartedAt = null;
+    }
+
+    if (timerInterval !== null) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    saveData();
+    updateView();
+  }
+
+  function resetTimer() {
+    if (viewedDate !== todayKey || clockWarning) return;
+
+    pauseTimer();
+    dayRecord(todayKey).focusSeconds = 0;
+    saveData();
+    updateView();
+  }
+
+  function checkClockForTampering() {
+    const wallNow = Date.now();
+    const monoNow = performance.now();
+    const wallElapsed = wallNow - clockCheckWall;
+    const monoElapsed = monoNow - clockCheckMono;
+
+    // While this page remains open, compare system time with a monotonic clock.
+    // This detects many clock jumps, but cannot securely validate a date on its own.
+    if (Math.abs(wallElapsed - monoElapsed) > 120000) {
+      clockWarning =
+        "The computer clock appears to have jumped. Your session is locked for safety. Restore the correct time and reload the page.";
+      return;
+    }
+
+    const newDate = localDateKey(new Date(wallNow));
+
+    if (newDate !== clockCheckDate) {
+      // A genuine midnight transition also advances the monotonic clock.
+      todayKey = newDate;
+      clockCheckDate = newDate;
+      viewedDate = todayKey;
+      saveData();
+    }
+
+    clockCheckWall = wallNow;
+    clockCheckMono = monoNow;
+  }
+
+  tasks.forEach(task => {
+    task.addEventListener("change", () => {
+      if (viewedDate !== todayKey || clockWarning) {
+        updateView();
+        return;
+      }
+
+      const record = dayRecord(todayKey);
+      record.tasks[task.dataset.id] = task.checked;
+      saveData();
+
+      if (task.checked) {
+        playSound();
+        const done = completedCount(record);
+
+        if (done === tasks.length && !record.completedCelebrated) {
+          record.completedCelebrated = true;
+          showPopup("🏆", "YOU DID IT!", "All today's tasks are complete. Your next session unlocks on the next calendar day!");
+        } else if (done < tasks.length) {
+          showPopup("🎉", "Great job!", `${done} of ${tasks.length} tasks completed. Keep going!`);
+        }
+      }
+
+      updateView();
+    });
+  });
+
+  $("start-btn").addEventListener("click", startTimer);
+  $("pause-btn").addEventListener("click", pauseTimer);
+  $("reset-btn").addEventListener("click", resetTimer);
+
+  $("today-btn").addEventListener("click", () => {
+    viewedDate = todayKey;
+    updateView();
+  });
+
+  $("next-btn").addEventListener("click", () => {
+    if (isFuture(viewedDate)) return;
+
+    const next = dateFromKey(viewedDate);
+    next.setDate(next.getDate() + 1);
+    viewedDate = localDateKey(next);
+    dayRecord(viewedDate);
+    updateView();
+  });
+
+  $("close-toast").addEventListener("click", () => {
+    $("celebration").classList.remove("show");
+    clearTimeout(popupTimer);
+  });
+
+  // Pause the timer whenever the tab is hidden.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && focusStartedAt !== null) {
+      pauseTimer();
+    }
+  });
+
+  // Detect many system-clock changes while this page is open.
+  setInterval(() => {
+    checkClockForTampering();
+
+    if (clockWarning) {
+      pauseTimer();
+      updateView();
+      return;
+    }
+
+    const actualDate = localDateKey();
+    if (actualDate !== todayKey) {
+      todayKey = actualDate;
+      viewedDate = todayKey;
+      clockCheckDate = todayKey;
+      updateView();
+    }
+  }, 2000);
+
+  // Start at the current date, never at a future session.
+  todayKey = localDateKey();
+  viewedDate = todayKey;
+  clockCheckDate = todayKey;
+
+
+  updateView();
+</script>
+</body>
+</html>
